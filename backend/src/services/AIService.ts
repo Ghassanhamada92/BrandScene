@@ -2,7 +2,24 @@ import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import { AIServiceError } from '../utils/errors';
 import logger from '../utils/logger';
-import { ResearchResult, ResearchQuery } from '@brandscene/shared';
+
+interface ResearchResult {
+  insights: string[];
+  trends: string[];
+  competitors?: string[];
+  recommendations: string[];
+  sources?: string[];
+  confidenceScore?: number;
+}
+
+interface ResearchQuery {
+  brand: string;
+  product: string;
+  audience: string;
+  context?: string;
+  topic?: string;
+  targetAudience?: string;
+}
 
 dotenv.config();
 

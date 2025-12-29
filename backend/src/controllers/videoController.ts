@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import VideoService from '../services/VideoService';
 import { asyncHandler } from '../middleware/errorHandler';
-import { ApiResponse } from '@brandscene/shared';
+import { ApiResponse } from '../types/shared';
 import logger from '../utils/logger';
 
 /**

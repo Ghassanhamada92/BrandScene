@@ -1,4 +1,4 @@
-import { ErrorCode } from '@brandscene/shared';
+import { ErrorCode } from '../types/shared';
 
 export class AppError extends Error {
   public readonly statusCode: number;

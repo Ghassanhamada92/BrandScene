@@ -4,17 +4,87 @@ import AIService from '../services/AIService';
 import { NotFoundError, ValidationError } from '../utils/errors';
 import { asyncHandler } from '../middleware/errorHandler';
 import logger from '../utils/logger';
-import {
-  ApiResponse,
-  Project,
-  Campaign,
-  Script,
-  ResearchData,
-  CreateProjectDto,
-  CreateCampaignDto,
-  UpdateCampaignDto,
-  GenerateScriptsDto,
-} from '@brandscene/shared';
+import { ApiResponse } from '../types/shared';
+// Type definitions
+type Project = {
+  id: string;
+  userId: string;
+  name: string;
+  description: string | null;
+  status: string;
+  currentStage: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type Campaign = {
+  id: string;
+  projectId: string;
+  brandName: string;
+  productName: string;
+  productDescription: string;
+  targetAudience: string;
+  keyBenefits: any;
+  brandVoice: string | null;
+  tone: string | null;
+  additionalContext: string | null;
+  videoLength: number;
+  videoStyle: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ResearchData = {
+  id: string;
+  campaignId: string;
+  researchType: string;
+  query: string;
+  results: any;
+  sources: any;
+  confidenceScore: number | null;
+  createdAt: Date;
+};
+
+interface CreateProjectDto {
+  name: string;
+  description?: string;
+}
+
+interface CreateCampaignDto {
+  brandName: string;
+  productName: string;
+  productDescription: string;
+  targetAudience: string;
+  keyBenefits?: string[];
+  brandVoice?: string;
+  tone?: string;
+  additionalContext?: string;
+  videoLength?: number;
+  videoStyle?: string;
+}
+
+interface UpdateCampaignDto extends Partial<CreateCampaignDto> {}
+
+interface GenerateScriptsDto {
+  variantCount?: number;
+}
+
+type Script = {
+  id: string;
+  campaignId: string;
+  variantNumber: number;
+  title: string;
+  content: string;
+  durationSeconds: number | null;
+  tone: string | null;
+  style: string | null;
+  metadata: any;
+  status: string;
+  approved: boolean;
+  approvedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 /**
  * Create a new project
@@ -248,9 +318,10 @@ export const conductResearch = asyncHandler(async (req: Request, res: Response) 
 
   // Conduct research using AI
   const researchResult = await AIService.conductResearch({
-    topic: `${campaign.productName} - ${campaign.productDescription}`,
-    context: campaign.additionalContext || '',
-    targetAudience: campaign.targetAudience,
+    brand: campaign.brandName,
+    product: campaign.productName,
+    audience: campaign.targetAudience,
+    context: campaign.additionalContext || campaign.productDescription,
   });
 
   // Save research data

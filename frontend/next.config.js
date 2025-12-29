@@ -3,10 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   images: {
-    domains: ['localhost'],
-  },
-  experimental: {
-    serverActions: true,
+    domains: ['localhost', 'brandscene.ai', 'oaidalleapiprodscus.blob.core.windows.net', 'images.pexels.com'],
   },
 };
 

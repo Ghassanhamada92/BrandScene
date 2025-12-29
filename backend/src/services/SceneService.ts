@@ -157,7 +157,7 @@ No text, no watermarks.`;
             quality: 'hd',
           });
 
-          const imageUrl = response.data[0].url;
+          const imageUrl = response.data?.[0]?.url;
           if (!imageUrl) continue;
 
           // Save to database

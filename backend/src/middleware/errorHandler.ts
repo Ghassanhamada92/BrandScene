@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError, handleError } from '../utils/errors';
-import { ApiResponse, ErrorCode } from '@brandscene/shared';
+import { ApiResponse, ErrorCode } from '../types/shared';
 import logger from '../utils/logger';
-import { Prisma } from '@prisma/client';
 
 export const errorHandler = (
   error: Error,
@@ -13,8 +12,8 @@ export const errorHandler = (
   let appError: AppError;
 
   // Handle Prisma errors
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    appError = handlePrismaError(error);
+  if (error.name === 'PrismaClientKnownRequestError') {
+    appError = handlePrismaError(error as any);
   } else {
     appError = handleError(error);
   }
@@ -59,7 +58,7 @@ export const errorHandler = (
 };
 
 // Handle Prisma-specific errors
-const handlePrismaError = (error: Prisma.PrismaClientKnownRequestError): AppError => {
+const handlePrismaError = (error: any): AppError => {
   switch (error.code) {
     case 'P2002':
       return new AppError(

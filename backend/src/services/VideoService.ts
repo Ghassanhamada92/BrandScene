@@ -256,7 +256,7 @@ class VideoService {
     }
 
     // Analyze overall mood from scenes
-    const moods = script.scenes?.map((s) => s.mood) || [];
+    const moods = script.scenes?.map((s: any) => s.mood) || [];
     const dominantMood = moods[0] || script.tone || 'upbeat';
 
     // Return curated music suggestions based on mood

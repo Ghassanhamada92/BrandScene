@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import StitchingService from '../services/StitchingService';
 import { asyncHandler } from '../middleware/errorHandler';
-import { ApiResponse } from '@brandscene/shared';
+import { ApiResponse } from '../types/shared';
 import logger from '../utils/logger';
 
 /**

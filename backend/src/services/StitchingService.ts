@@ -43,7 +43,7 @@ class StitchingService {
 
     try {
       // Use AI to determine best transitions between scenes
-      const sceneDescriptions = script.scenes.map((scene) => ({
+      const sceneDescriptions = script.scenes.map((scene: any) => ({
         number: scene.sceneNumber,
         mood: scene.mood,
         description: scene.visualDescription,

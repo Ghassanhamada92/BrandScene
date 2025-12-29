@@ -1,7 +1,7 @@
 import rateLimit from 'express-rate-limit';
 import { RATE_LIMITS, HTTP_STATUS } from '../utils/constants';
 import logger from '../utils/logger';
-import { ApiResponse } from '@brandscene/shared';
+import { ApiResponse } from '../types/shared';
 
 /**
  * Rate limiting middleware

@@ -7,7 +7,9 @@ import {
   getRenderPresets,
 } from '../controllers/stitchingController';
 import { validate } from '../middleware/validator';
-import { uuidSchema } from '@brandscene/shared';
+import { z } from 'zod';
+
+const uuidSchema = z.string().uuid();
 
 const router = Router();
 
