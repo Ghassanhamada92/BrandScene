@@ -10,24 +10,32 @@ import {
   generateScripts,
   approveScript,
 } from '../controllers/projectController';
+import { validate } from '../middleware/validator';
+import {
+  createProjectSchema,
+  createCampaignSchema,
+  updateCampaignSchema,
+  generateScriptsSchema,
+  uuidSchema,
+} from '@brandscene/shared';
 
 const router = Router();
 
 // Project routes
-router.post('/', createProject);
+router.post('/', validate(createProjectSchema), createProject);
 router.get('/', getProjects);
-router.get('/:id', getProject);
+router.get('/:id', validate(uuidSchema, 'params'), getProject);
 
 // Campaign routes
-router.post('/:projectId/campaigns', createCampaign);
-router.get('/campaigns/:campaignId', getCampaign);
-router.put('/campaigns/:campaignId', updateCampaign);
+router.post('/:projectId/campaigns', validate(createCampaignSchema), createCampaign);
+router.get('/campaigns/:campaignId', validate(uuidSchema, 'params'), getCampaign);
+router.put('/campaigns/:campaignId', validate(updateCampaignSchema), updateCampaign);
 
 // Research routes
-router.post('/campaigns/:campaignId/research', conductResearch);
+router.post('/campaigns/:campaignId/research', validate(uuidSchema, 'params'), conductResearch);
 
 // Script generation routes
-router.post('/campaigns/:campaignId/scripts', generateScripts);
-router.put('/scripts/:scriptId/approve', approveScript);
+router.post('/campaigns/:campaignId/scripts', validate(generateScriptsSchema), generateScripts);
+router.put('/scripts/:scriptId/approve', validate(uuidSchema, 'params'), approveScript);
 
 export default router;

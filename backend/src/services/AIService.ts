@@ -1,26 +1,14 @@
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import { AIServiceError } from '../utils/errors';
+import logger from '../utils/logger';
+import { ResearchResult, ResearchQuery } from '@brandscene/shared';
 
 dotenv.config();
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-export interface ResearchQuery {
-  topic: string;
-  context: string;
-  targetAudience: string;
-}
-
-export interface ResearchResult {
-  insights: string[];
-  trends: string[];
-  competitorAnalysis: string[];
-  recommendations: string[];
-  sources: string[];
-  confidenceScore: number;
-}
 
 export interface ScriptGenerationParams {
   brandName: string;
@@ -49,10 +37,12 @@ export interface GeneratedScript {
 
 class AIService {
   /**
-   * Conduct research on target audience, market trends, and competitors
+   * Conduct comprehensive research on target audience, market trends, and competitors
    */
   async conductResearch(query: ResearchQuery): Promise<ResearchResult> {
     try {
+      logger.info('Starting AI research', { topic: query.topic });
+
       const prompt = `You are a market research expert. Conduct comprehensive research for a marketing campaign with the following parameters:
 
 Topic: ${query.topic}
@@ -94,13 +84,29 @@ Format your response as valid JSON with the following structure:
 
       const content = response.choices[0].message.content;
       if (!content) {
-        throw new Error('No content received from OpenAI');
+        throw new AIServiceError('No content received from OpenAI');
       }
 
-      return JSON.parse(content) as ResearchResult;
+      const result = JSON.parse(content) as ResearchResult;
+      
+      logger.info('AI research completed', {
+        topic: query.topic,
+        confidenceScore: result.confidenceScore,
+      });
+
+      return result;
     } catch (error) {
-      console.error('Error conducting research:', error);
-      throw new Error('Failed to conduct research');
+      logger.error('AI research failed', error as Error, { topic: query.topic });
+      
+      if (error instanceof AIServiceError) {
+        throw error;
+      }
+      
+      if (error instanceof Error) {
+        throw new AIServiceError(`Research failed: ${error.message}`);
+      }
+      
+      throw new AIServiceError('Failed to conduct research');
     }
   }
 
@@ -109,6 +115,11 @@ Format your response as valid JSON with the following structure:
    */
   async generateScript(params: ScriptGenerationParams): Promise<GeneratedScript> {
     try {
+      logger.info('Starting script generation', {
+        productName: params.productName,
+        variantNumber: params.variantNumber,
+      });
+
       const researchContext = params.research
         ? `
 Research Insights:
@@ -173,31 +184,67 @@ Format your response as valid JSON with the following structure:
 
       const content = response.choices[0].message.content;
       if (!content) {
-        throw new Error('No content received from OpenAI');
+        throw new AIServiceError('No content received from OpenAI');
       }
 
-      return JSON.parse(content) as GeneratedScript;
+      const result = JSON.parse(content) as GeneratedScript;
+      
+      logger.info('Script generation completed', {
+        productName: params.productName,
+        variantNumber: params.variantNumber,
+        title: result.title,
+      });
+
+      return result;
     } catch (error) {
-      console.error('Error generating script:', error);
-      throw new Error('Failed to generate script');
+      logger.error('Script generation failed', error as Error, {
+        productName: params.productName,
+        variantNumber: params.variantNumber,
+      });
+      
+      if (error instanceof AIServiceError) {
+        throw error;
+      }
+      
+      if (error instanceof Error) {
+        throw new AIServiceError(`Script generation failed: ${error.message}`);
+      }
+      
+      throw new AIServiceError('Failed to generate script');
     }
   }
 
   /**
-   * Generate multiple script variants
+   * Generate multiple script variants concurrently
    */
   async generateScriptVariants(
     params: Omit<ScriptGenerationParams, 'variantNumber'>,
     count: number = 3
   ): Promise<GeneratedScript[]> {
-    const variants: GeneratedScript[] = [];
+    logger.info('Starting batch script generation', {
+      productName: params.productName,
+      count,
+    });
 
-    for (let i = 1; i <= count; i++) {
-      const script = await this.generateScript({ ...params, variantNumber: i });
-      variants.push(script);
+    try {
+      const promises = Array.from({ length: count }, (_, i) =>
+        this.generateScript({ ...params, variantNumber: i + 1 })
+      );
+
+      const variants = await Promise.all(promises);
+      
+      logger.info('Batch script generation completed', {
+        productName: params.productName,
+        count: variants.length,
+      });
+
+      return variants;
+    } catch (error) {
+      logger.error('Batch script generation failed', error as Error, {
+        productName: params.productName,
+      });
+      throw error;
     }
-
-    return variants;
   }
 }
 

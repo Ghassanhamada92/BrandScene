@@ -1,344 +1,417 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import AIService from '../services/AIService';
+import { NotFoundError, ValidationError } from '../utils/errors';
+import { asyncHandler } from '../middleware/errorHandler';
+import logger from '../utils/logger';
+import {
+  ApiResponse,
+  Project,
+  Campaign,
+  Script,
+  ResearchData,
+  CreateProjectDto,
+  CreateCampaignDto,
+  UpdateCampaignDto,
+  GenerateScriptsDto,
+} from '@brandscene/shared';
 
-export const createProject = async (req: Request, res: Response) => {
-  try {
-    const { name, description } = req.body;
-    const userId = req.user?.id || 'demo-user-id'; // Replace with actual auth
+/**
+ * Create a new project
+ */
+export const createProject = asyncHandler(async (req: Request, res: Response) => {
+  const { name, description } = req.body as CreateProjectDto;
+  const userId = req.user?.id || 'demo-user-id';
 
-    const project = await prisma.project.create({
-      data: {
-        userId,
-        name,
-        description,
-        status: 'draft',
-        currentStage: 1,
-      },
-    });
+  logger.info('Creating project', {
+    ...logger.requestContext(req),
+    projectName: name,
+  });
 
-    res.status(201).json({
-      success: true,
-      data: project,
-    });
-  } catch (error) {
-    console.error('Error creating project:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create project',
-    });
-  }
-};
+  const project = await prisma.project.create({
+    data: {
+      userId,
+      name,
+      description,
+      status: 'draft',
+      currentStage: 1,
+    },
+  });
 
-export const getProject = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const response: ApiResponse<Project> = {
+    success: true,
+    data: project as Project,
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId,
+    },
+  };
 
-    const project = await prisma.project.findUnique({
-      where: { id },
-      include: {
-        campaigns: {
-          include: {
-            researchData: true,
-            scripts: {
-              include: {
-                scenes: true,
-              },
+  res.status(201).json(response);
+});
+
+/**
+ * Get a specific project with all related data
+ */
+export const getProject = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const project = await prisma.project.findUnique({
+    where: { id },
+    include: {
+      campaigns: {
+        include: {
+          researchData: true,
+          scripts: {
+            include: {
+              scenes: true,
             },
+            orderBy: { variantNumber: 'asc' },
           },
         },
       },
-    });
+    },
+  });
 
-    if (!project) {
-      return res.status(404).json({
-        success: false,
-        message: 'Project not found',
-      });
-    }
-
-    res.json({
-      success: true,
-      data: project,
-    });
-  } catch (error) {
-    console.error('Error fetching project:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch project',
-    });
+  if (!project) {
+    throw new NotFoundError('Project', id);
   }
-};
 
-export const getProjects = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.id || 'demo-user-id';
+  const response: ApiResponse = {
+    success: true,
+    data: project,
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId,
+    },
+  };
 
-    const projects = await prisma.project.findMany({
-      where: { userId },
-      include: {
-        campaigns: true,
+  res.json(response);
+});
+
+/**
+ * Get all projects for the current user
+ */
+export const getProjects = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id || 'demo-user-id';
+
+  const projects = await prisma.project.findMany({
+    where: { userId },
+    include: {
+      campaigns: {
+        select: {
+          id: true,
+          brandName: true,
+          productName: true,
+        },
       },
-      orderBy: { updatedAt: 'desc' },
-    });
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
 
-    res.json({
-      success: true,
-      data: projects,
-    });
-  } catch (error) {
-    console.error('Error fetching projects:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch projects',
-    });
+  const response: ApiResponse<Project[]> = {
+    success: true,
+    data: projects as Project[],
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId,
+    },
+  };
+
+  res.json(response);
+});
+
+/**
+ * Create a new campaign
+ */
+export const createCampaign = asyncHandler(async (req: Request, res: Response) => {
+  const { projectId } = req.params;
+  const campaignData = req.body as CreateCampaignDto;
+
+  logger.info('Creating campaign', {
+    ...logger.requestContext(req),
+    projectId,
+    brandName: campaignData.brandName,
+  });
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+  });
+
+  if (!project) {
+    throw new NotFoundError('Project', projectId);
   }
-};
 
-export const createCampaign = async (req: Request, res: Response) => {
-  try {
-    const { projectId } = req.params;
-    const campaignData = req.body;
+  const campaign = await prisma.campaign.create({
+    data: {
+      projectId,
+      ...campaignData,
+    },
+  });
 
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-    });
+  const response: ApiResponse<Campaign> = {
+    success: true,
+    data: campaign as Campaign,
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId,
+    },
+  };
 
-    if (!project) {
-      return res.status(404).json({
-        success: false,
-        message: 'Project not found',
-      });
-    }
+  res.status(201).json(response);
+});
 
-    const campaign = await prisma.campaign.create({
-      data: {
-        projectId,
-        ...campaignData,
+/**
+ * Update an existing campaign
+ */
+export const updateCampaign = asyncHandler(async (req: Request, res: Response) => {
+  const { campaignId } = req.params;
+  const campaignData = req.body as UpdateCampaignDto;
+
+  logger.info('Updating campaign', {
+    ...logger.requestContext(req),
+    campaignId,
+  });
+
+  const campaign = await prisma.campaign.update({
+    where: { id: campaignId },
+    data: campaignData,
+  });
+
+  const response: ApiResponse<Campaign> = {
+    success: true,
+    data: campaign as Campaign,
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId,
+    },
+  };
+
+  res.json(response);
+});
+
+/**
+ * Get a specific campaign
+ */
+export const getCampaign = asyncHandler(async (req: Request, res: Response) => {
+  const { campaignId } = req.params;
+
+  const campaign = await prisma.campaign.findUnique({
+    where: { id: campaignId },
+    include: {
+      researchData: {
+        orderBy: { createdAt: 'desc' },
       },
-    });
+      scripts: {
+        include: {
+          scenes: true,
+        },
+        orderBy: { variantNumber: 'asc' },
+      },
+    },
+  });
 
-    res.status(201).json({
-      success: true,
-      data: campaign,
-    });
-  } catch (error) {
-    console.error('Error creating campaign:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create campaign',
-    });
+  if (!campaign) {
+    throw new NotFoundError('Campaign', campaignId);
   }
-};
 
-export const updateCampaign = async (req: Request, res: Response) => {
-  try {
-    const { campaignId } = req.params;
-    const campaignData = req.body;
+  const response: ApiResponse<Campaign> = {
+    success: true,
+    data: campaign as any,
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId,
+    },
+  };
 
-    const campaign = await prisma.campaign.update({
-      where: { id: campaignId },
-      data: campaignData,
-    });
+  res.json(response);
+});
 
-    res.json({
-      success: true,
-      data: campaign,
-    });
-  } catch (error) {
-    console.error('Error updating campaign:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update campaign',
-    });
+/**
+ * Conduct AI-powered research for a campaign
+ */
+export const conductResearch = asyncHandler(async (req: Request, res: Response) => {
+  const { campaignId } = req.params;
+
+  logger.info('Conducting research', {
+    ...logger.requestContext(req),
+    campaignId,
+  });
+
+  const campaign = await prisma.campaign.findUnique({
+    where: { id: campaignId },
+  });
+
+  if (!campaign) {
+    throw new NotFoundError('Campaign', campaignId);
   }
-};
 
-export const conductResearch = async (req: Request, res: Response) => {
-  try {
-    const { campaignId } = req.params;
+  // Conduct research using AI
+  const researchResult = await AIService.conductResearch({
+    topic: `${campaign.productName} - ${campaign.productDescription}`,
+    context: campaign.additionalContext || '',
+    targetAudience: campaign.targetAudience,
+  });
 
-    const campaign = await prisma.campaign.findUnique({
-      where: { id: campaignId },
-    });
+  // Save research data
+  const researchData = await prisma.researchData.create({
+    data: {
+      campaignId,
+      researchType: 'comprehensive',
+      query: `Research for ${campaign.brandName} - ${campaign.productName}`,
+      results: researchResult as any,
+      sources: researchResult.sources as any,
+      confidenceScore: researchResult.confidenceScore,
+    },
+  });
 
-    if (!campaign) {
-      return res.status(404).json({
-        success: false,
-        message: 'Campaign not found',
-      });
-    }
+  logger.info('Research completed', {
+    ...logger.requestContext(req),
+    campaignId,
+    researchId: researchData.id,
+    confidenceScore: researchData.confidenceScore,
+  });
 
-    // Conduct research using AI
-    const researchResult = await AIService.conductResearch({
-      topic: `${campaign.productName} - ${campaign.productDescription}`,
-      context: campaign.additionalContext || '',
+  const response: ApiResponse<ResearchData> = {
+    success: true,
+    data: researchData as ResearchData,
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId,
+    },
+  };
+
+  res.json(response);
+});
+
+/**
+ * Generate script variants for a campaign
+ */
+export const generateScripts = asyncHandler(async (req: Request, res: Response) => {
+  const { campaignId } = req.params;
+  const { variantCount = 3 } = req.body as GenerateScriptsDto;
+
+  if (variantCount < 1 || variantCount > 5) {
+    throw new ValidationError('Variant count must be between 1 and 5');
+  }
+
+  logger.info('Generating scripts', {
+    ...logger.requestContext(req),
+    campaignId,
+    variantCount,
+  });
+
+  const campaign = await prisma.campaign.findUnique({
+    where: { id: campaignId },
+    include: {
+      researchData: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
+    },
+  });
+
+  if (!campaign) {
+    throw new NotFoundError('Campaign', campaignId);
+  }
+
+  const latestResearch = campaign.researchData[0];
+
+  // Generate script variants
+  const scriptVariants = await AIService.generateScriptVariants(
+    {
+      brandName: campaign.brandName,
+      productName: campaign.productName,
+      productDescription: campaign.productDescription,
       targetAudience: campaign.targetAudience,
-    });
+      keyBenefits: (campaign.keyBenefits as string[]) || [],
+      brandVoice: campaign.brandVoice || undefined,
+      tone: campaign.tone || undefined,
+      research: latestResearch?.results as any,
+    },
+    variantCount
+  );
 
-    // Save research data
-    const researchData = await prisma.researchData.create({
-      data: {
-        campaignId,
-        researchType: 'comprehensive',
-        query: `Research for ${campaign.brandName} - ${campaign.productName}`,
-        results: researchResult as any,
-        sources: researchResult.sources as any,
-        confidenceScore: researchResult.confidenceScore,
-      },
-    });
-
-    res.json({
-      success: true,
-      data: researchData,
-    });
-  } catch (error) {
-    console.error('Error conducting research:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to conduct research',
-    });
-  }
-};
-
-export const generateScripts = async (req: Request, res: Response) => {
-  try {
-    const { campaignId } = req.params;
-    const { variantCount = 3 } = req.body;
-
-    const campaign = await prisma.campaign.findUnique({
-      where: { id: campaignId },
-      include: {
-        researchData: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
+  // Save scripts to database
+  const scripts = await Promise.all(
+    scriptVariants.map((variant, index) =>
+      prisma.script.create({
+        data: {
+          campaignId,
+          variantNumber: index + 1,
+          title: variant.title,
+          content: variant.content,
+          durationSeconds: variant.durationSeconds,
+          tone: variant.tone,
+          style: variant.style,
+          metadata: variant.metadata as any,
+          status: 'generated',
         },
-      },
-    });
+      })
+    )
+  );
 
-    if (!campaign) {
-      return res.status(404).json({
-        success: false,
-        message: 'Campaign not found',
-      });
-    }
+  logger.info('Scripts generated', {
+    ...logger.requestContext(req),
+    campaignId,
+    scriptCount: scripts.length,
+  });
 
-    const latestResearch = campaign.researchData[0];
+  const response: ApiResponse<Script[]> = {
+    success: true,
+    data: scripts as Script[],
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId,
+    },
+  };
 
-    // Generate script variants
-    const scriptVariants = await AIService.generateScriptVariants(
-      {
-        brandName: campaign.brandName,
-        productName: campaign.productName,
-        productDescription: campaign.productDescription,
-        targetAudience: campaign.targetAudience,
-        keyBenefits: (campaign.keyBenefits as string[]) || [],
-        brandVoice: campaign.brandVoice || undefined,
-        tone: campaign.tone || undefined,
-        research: latestResearch?.results as any,
-      },
-      variantCount
-    );
+  res.json(response);
+});
 
-    // Save scripts to database
-    const scripts = await Promise.all(
-      scriptVariants.map((variant, index) =>
-        prisma.script.create({
-          data: {
-            campaignId,
-            variantNumber: index + 1,
-            title: variant.title,
-            content: variant.content,
-            durationSeconds: variant.durationSeconds,
-            tone: variant.tone,
-            style: variant.style,
-            metadata: variant.metadata as any,
-            status: 'generated',
-          },
-        })
-      )
-    );
+/**
+ * Approve a script and advance to next stage
+ */
+export const approveScript = asyncHandler(async (req: Request, res: Response) => {
+  const { scriptId } = req.params;
 
-    res.json({
-      success: true,
-      data: scripts,
-    });
-  } catch (error) {
-    console.error('Error generating scripts:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to generate scripts',
-    });
-  }
-};
+  logger.info('Approving script', {
+    ...logger.requestContext(req),
+    scriptId,
+  });
 
-export const approveScript = async (req: Request, res: Response) => {
-  try {
-    const { scriptId } = req.params;
+  const script = await prisma.script.update({
+    where: { id: scriptId },
+    data: {
+      approved: true,
+      approvedAt: new Date(),
+      status: 'approved',
+    },
+    include: {
+      campaign: true,
+    },
+  });
 
-    const script = await prisma.script.update({
-      where: { id: scriptId },
-      data: {
-        approved: true,
-        approvedAt: new Date(),
-        status: 'approved',
-      },
-      include: {
-        campaign: true,
-      },
-    });
+  // Update project stage
+  await prisma.project.update({
+    where: { id: script.campaign.projectId },
+    data: { currentStage: 2 },
+  });
 
-    // Update project stage
-    await prisma.project.update({
-      where: { id: script.campaign.projectId },
-      data: { currentStage: 2 },
-    });
+  logger.info('Script approved', {
+    ...logger.requestContext(req),
+    scriptId,
+    projectId: script.campaign.projectId,
+  });
 
-    res.json({
-      success: true,
-      data: script,
-    });
-  } catch (error) {
-    console.error('Error approving script:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to approve script',
-    });
-  }
-};
+  const response: ApiResponse<Script> = {
+    success: true,
+    data: script as Script,
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId,
+    },
+  };
 
-export const getCampaign = async (req: Request, res: Response) => {
-  try {
-    const { campaignId } = req.params;
-
-    const campaign = await prisma.campaign.findUnique({
-      where: { id: campaignId },
-      include: {
-        researchData: true,
-        scripts: {
-          include: {
-            scenes: true,
-          },
-        },
-      },
-    });
-
-    if (!campaign) {
-      return res.status(404).json({
-        success: false,
-        message: 'Campaign not found',
-      });
-    }
-
-    res.json({
-      success: true,
-      data: campaign,
-    });
-  } catch (error) {
-    console.error('Error fetching campaign:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch campaign',
-    });
-  }
-};
+  res.json(response);
+});
