@@ -3,7 +3,9 @@ import {
   createProject,
   getProject,
   getProjects,
-  updateBrandInfo,
+  createCampaign,
+  updateCampaign,
+  getCampaign,
   conductResearch,
   generateScripts,
   approveScript,
@@ -16,14 +18,16 @@ router.post('/', createProject);
 router.get('/', getProjects);
 router.get('/:id', getProject);
 
-// Brand info routes
-router.put('/:projectId/brand-info', updateBrandInfo);
+// Campaign routes
+router.post('/:projectId/campaigns', createCampaign);
+router.get('/campaigns/:campaignId', getCampaign);
+router.put('/campaigns/:campaignId', updateCampaign);
 
 // Research routes
-router.post('/:projectId/research', conductResearch);
+router.post('/campaigns/:campaignId/research', conductResearch);
 
 // Script generation routes
-router.post('/:projectId/scripts', generateScripts);
+router.post('/campaigns/:campaignId/scripts', generateScripts);
 router.put('/scripts/:scriptId/approve', approveScript);
 
 export default router;

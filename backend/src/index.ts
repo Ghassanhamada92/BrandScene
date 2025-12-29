@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
-import { sequelize } from './config/database';
+import prisma from './lib/prisma';
 import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
@@ -38,14 +38,8 @@ app.use(errorHandler);
 // Database connection and server start
 const startServer = async () => {
   try {
-    await sequelize.authenticate();
+    await prisma.$connect();
     console.log('✅ Database connection established successfully.');
-    
-    // Sync database models (in production, use migrations)
-    if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: true });
-      console.log('✅ Database models synchronized.');
-    }
 
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);
@@ -56,6 +50,17 @@ const startServer = async () => {
     process.exit(1);
   }
 };
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  await prisma.$disconnect();
+  process.exit(0);
+});
 
 startServer();
 
