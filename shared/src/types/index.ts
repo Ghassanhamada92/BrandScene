@@ -191,7 +191,7 @@ export interface GenerateScriptsDto {
 }
 
 // ============================================================================
-// Scene Types
+// Scene Types (Stage 2)
 // ============================================================================
 
 export interface Scene {
@@ -220,8 +220,69 @@ export interface CreateSceneDto {
   transitionType?: string;
 }
 
+export interface ImageVariation {
+  id: string;
+  sceneId: string;
+  variationNumber: number;
+  prompt: string;
+  imageUrl: string;
+  generationParams?: any;
+  selected: boolean;
+  createdAt: Date;
+}
+
 // ============================================================================
-// Video Types
+// Video Types (Stage 3)
+// ============================================================================
+
+export interface VideoClip {
+  id: string;
+  sceneId: string;
+  sourceType: VideoSourceType;
+  sourceUrl: string;
+  durationSeconds: number;
+  resolution?: string;
+  fileSizeMb?: number;
+  thumbnailUrl?: string;
+  metadata?: any;
+  processingStatus: ProcessingStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export enum VideoSourceType {
+  STOCK = 'stock',
+  GENERATED = 'generated',
+  UPLOADED = 'uploaded',
+}
+
+export enum ProcessingStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}
+
+export interface AudioTrack {
+  id: string;
+  scriptId: string;
+  trackType: AudioTrackType;
+  audioUrl: string;
+  durationSeconds: number;
+  voiceId?: string;
+  fileSizeMb?: number;
+  metadata?: any;
+  createdAt: Date;
+}
+
+export enum AudioTrackType {
+  NARRATION = 'narration',
+  MUSIC = 'music',
+  SFX = 'sfx',
+}
+
+// ============================================================================
+// Stitching Types (Stage 4)
 // ============================================================================
 
 export interface Video {
@@ -232,7 +293,7 @@ export interface Video {
   durationSeconds: number;
   resolution?: string;
   fileSizeMb?: number;
-  renderSettings?: any;
+  renderSettings?: RenderSettings;
   status: VideoStatus;
   createdAt: Date;
   completedAt?: Date;
@@ -243,6 +304,50 @@ export enum VideoStatus {
   RENDERING = 'rendering',
   COMPLETED = 'completed',
   FAILED = 'failed',
+}
+
+export interface RenderSettings {
+  resolution: string;
+  fps: number;
+  codec: string;
+  bitrate: string;
+  format: string;
+}
+
+export interface Transition {
+  id: string;
+  videoId: string;
+  fromSceneId: string;
+  toSceneId: string;
+  transitionType: TransitionType;
+  durationSeconds: number;
+  parameters?: any;
+  createdAt: Date;
+}
+
+export enum TransitionType {
+  FADE = 'fade',
+  DISSOLVE = 'dissolve',
+  CUT = 'cut',
+  WIPE = 'wipe',
+  ZOOM = 'zoom',
+  SLIDE = 'slide',
+}
+
+export interface Timeline {
+  totalDuration: number;
+  scenes: TimelineScene[];
+  narration?: AudioTrack;
+}
+
+export interface TimelineScene {
+  sceneNumber: number;
+  startTime: number;
+  endTime: number;
+  duration: number;
+  videoClip?: VideoClip;
+  imageVariation?: ImageVariation;
+  narration: string;
 }
 
 // ============================================================================
@@ -304,12 +409,15 @@ export enum ErrorCode {
   // AI Service
   AI_SERVICE_ERROR = 'AI_SERVICE_ERROR',
   AI_RATE_LIMIT = 'AI_RATE_LIMIT',
+  AI_TIMEOUT = 'AI_TIMEOUT',
   
   // Database
   DATABASE_ERROR = 'DATABASE_ERROR',
+  DATABASE_CONNECTION_ERROR = 'DATABASE_CONNECTION_ERROR',
   
   // External Service
   EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR',
+  EXTERNAL_SERVICE_TIMEOUT = 'EXTERNAL_SERVICE_TIMEOUT',
 }
 
 // ============================================================================

@@ -2,6 +2,7 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import prisma from './lib/prisma';
 import routes from './routes';
@@ -10,18 +11,31 @@ import { notFoundHandler } from './middleware/notFoundHandler';
 import { requestIdMiddleware } from './middleware/requestId';
 import { requestLogger } from './middleware/requestLogger';
 import logger from './utils/logger';
+import { API_CONFIG } from './utils/constants';
 
 dotenv.config();
 
 const app: Application = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy for accurate IP addresses
+app.set('trust proxy', 1);
+
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false, // Adjust based on your needs
+  crossOriginEmbedderPolicy: false,
+}));
+
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
 }));
+
+// Compression middleware
+app.use(compression());
 
 // Request processing
 app.use(requestIdMiddleware);
