@@ -1,0 +1,270 @@
+// BrandScene AI Platform - Prisma Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Model
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  name         String
+  passwordHash String    @map("password_hash")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  
+  projects     Project[]
+  activityLogs ActivityLog[]
+
+  @@map("users")
+}
+
+// Project Model
+model Project {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  name         String
+  description  String?  @db.Text
+  status       String   @default("draft")
+  currentStage Int      @default(1) @map("current_stage")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaigns    Campaign[]
+  activityLogs ActivityLog[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("projects")
+}
+
+// Campaign Model (formerly BrandInfo - expanded)
+model Campaign {
+  id                  String   @id @default(uuid())
+  projectId           String   @map("project_id")
+  brandName           String   @map("brand_name")
+  productName         String   @map("product_name")
+  productDescription  String   @db.Text @map("product_description")
+  targetAudience      String   @db.Text @map("target_audience")
+  keyBenefits         Json?    @map("key_benefits")
+  brandVoice          String?  @map("brand_voice")
+  tone                String?
+  additionalContext   String?  @db.Text @map("additional_context")
+  videoLength         Int      @default(30) @map("video_length") // in seconds
+  videoStyle          String?  @map("video_style")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+  
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  researchData ResearchData[]
+  scripts      Script[]
+  assets       Asset[]
+
+  @@index([projectId])
+  @@map("campaigns")
+}
+
+// Research Data Model
+model ResearchData {
+  id              String   @id @default(uuid())
+  campaignId      String   @map("campaign_id")
+  researchType    String   @map("research_type")
+  query           String   @db.Text
+  results         Json
+  sources         Json?
+  confidenceScore Decimal? @db.Decimal(3, 2) @map("confidence_score")
+  createdAt       DateTime @default(now()) @map("created_at")
+  
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("research_data")
+}
+
+// Script Model
+model Script {
+  id              String    @id @default(uuid())
+  campaignId      String    @map("campaign_id")
+  variantNumber   Int       @map("variant_number")
+  title           String
+  content         String    @db.Text
+  durationSeconds Int?      @map("duration_seconds")
+  tone            String?
+  style           String?
+  metadata        Json?
+  status          String    @default("pending")
+  approved        Boolean   @default(false)
+  approvedAt      DateTime? @map("approved_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  campaign    Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  scenes      Scene[]
+  audioTracks AudioTrack[]
+  videos      Video[]
+
+  @@index([campaignId])
+  @@index([status])
+  @@map("scripts")
+}
+
+// Scene Model
+model Scene {
+  id                 String   @id @default(uuid())
+  scriptId           String   @map("script_id")
+  sceneNumber        Int      @map("scene_number")
+  narrationText      String   @db.Text @map("narration_text")
+  visualDescription  String   @db.Text @map("visual_description")
+  durationSeconds    Decimal  @db.Decimal(5, 2) @map("duration_seconds")
+  mood               String?
+  cameraAngle        String?  @map("camera_angle")
+  transitionType     String?  @map("transition_type")
+  metadata           Json?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  
+  script          Script            @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  imageVariations ImageVariation[]
+  videoClips      VideoClip[]
+  transitionsFrom Transition[]      @relation("FromScene")
+  transitionsTo   Transition[]      @relation("ToScene")
+
+  @@index([scriptId])
+  @@map("scenes")
+}
+
+// Image Variation Model
+model ImageVariation {
+  id               String   @id @default(uuid())
+  sceneId          String   @map("scene_id")
+  variationNumber  Int      @map("variation_number")
+  prompt           String   @db.Text
+  imageUrl         String?  @map("image_url")
+  generationParams Json?    @map("generation_params")
+  selected         Boolean  @default(false)
+  createdAt        DateTime @default(now()) @map("created_at")
+  
+  scene Scene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@index([sceneId])
+  @@map("image_variations")
+}
+
+// Video Clip Model
+model VideoClip {
+  id               String   @id @default(uuid())
+  sceneId          String   @map("scene_id")
+  sourceType       String   @map("source_type") // "stock", "generated", "uploaded"
+  sourceUrl        String   @db.Text @map("source_url")
+  durationSeconds  Decimal  @db.Decimal(5, 2) @map("duration_seconds")
+  resolution       String?
+  fileSizeMb       Decimal? @db.Decimal(10, 2) @map("file_size_mb")
+  thumbnailUrl     String?  @db.Text @map("thumbnail_url")
+  metadata         Json?
+  processingStatus String   @default("pending") @map("processing_status")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  
+  scene Scene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@index([sceneId])
+  @@map("video_clips")
+}
+
+// Audio Track Model
+model AudioTrack {
+  id              String   @id @default(uuid())
+  scriptId        String   @map("script_id")
+  trackType       String   @map("track_type") // "narration", "music", "sfx"
+  audioUrl        String   @db.Text @map("audio_url")
+  durationSeconds Decimal  @db.Decimal(5, 2) @map("duration_seconds")
+  voiceId         String?  @map("voice_id")
+  fileSizeMb      Decimal? @db.Decimal(10, 2) @map("file_size_mb")
+  metadata        Json?
+  createdAt       DateTime @default(now()) @map("created_at")
+  
+  script Script @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+
+  @@index([scriptId])
+  @@map("audio_tracks")
+}
+
+// Video Model (Final Rendered Videos)
+model Video {
+  id              String    @id @default(uuid())
+  scriptId        String    @map("script_id")
+  videoUrl        String    @db.Text @map("video_url")
+  thumbnailUrl    String?   @db.Text @map("thumbnail_url")
+  durationSeconds Decimal   @db.Decimal(5, 2) @map("duration_seconds")
+  resolution      String?
+  fileSizeMb      Decimal?  @db.Decimal(10, 2) @map("file_size_mb")
+  renderSettings  Json?     @map("render_settings")
+  status          String    @default("rendering")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  completedAt     DateTime? @map("completed_at")
+  
+  script      Script       @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  transitions Transition[]
+
+  @@index([scriptId])
+  @@map("videos")
+}
+
+// Transition Model
+model Transition {
+  id              String   @id @default(uuid())
+  videoId         String   @map("video_id")
+  fromSceneId     String   @map("from_scene_id")
+  toSceneId       String   @map("to_scene_id")
+  transitionType  String   @map("transition_type")
+  durationSeconds Decimal  @db.Decimal(3, 2) @map("duration_seconds")
+  parameters      Json?
+  createdAt       DateTime @default(now()) @map("created_at")
+  
+  video     Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  fromScene Scene @relation("FromScene", fields: [fromSceneId], references: [id])
+  toScene   Scene @relation("ToScene", fields: [toSceneId], references: [id])
+
+  @@index([videoId])
+  @@map("transitions")
+}
+
+// Asset Model (For uploaded/generated assets)
+model Asset {
+  id           String   @id @default(uuid())
+  campaignId   String   @map("campaign_id")
+  assetType    String   @map("asset_type") // "image", "video", "audio", "logo"
+  fileName     String   @map("file_name")
+  fileUrl      String   @db.Text @map("file_url")
+  fileSizeMb   Decimal  @db.Decimal(10, 2) @map("file_size_mb")
+  mimeType     String   @map("mime_type")
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+  
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("assets")
+}
+
+// Activity Log Model
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  projectId String?  @map("project_id")
+  action    String
+  details   Json?
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("activity_log")
+}
